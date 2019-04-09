@@ -20,7 +20,25 @@ class HttpServerDecoratorTest extends ServerDecoratorTest {
     then:
     if (req) {
       1 * span.setTag(Tags.HTTP_METHOD.key, "test-method")
-      1 * span.setTag(Tags.HTTP_URL.key, "test-url")
+      1 * span.setTag(Tags.HTTP_URL.key, "http://test-url/")
+    }
+    0 * _
+
+    where:
+    req                                                                    | _
+    null                                                                   | _
+    [method: "test-method", url: URI.create("http://test-url?some=query")] | _
+  }
+
+  def "test onConnection"() {
+    setup:
+    def decorator = newDecorator()
+
+    when:
+    decorator.onConnection(span, conn)
+
+    then:
+    if (conn) {
       1 * span.setTag(Tags.PEER_HOSTNAME.key, "test-host")
       1 * span.setTag(Tags.PEER_PORT.key, 555)
       if (ipv4) {
@@ -32,11 +50,11 @@ class HttpServerDecoratorTest extends ServerDecoratorTest {
     0 * _
 
     where:
-    ipv4  | req
+    ipv4  | conn
     null  | null
-    null  | [method: "test-method", url: "test-url", host: "test-host", ip: null, port: 555]
-    true  | [method: "test-method", url: "test-url", host: "test-host", ip: "10.0.0.1", port: 555]
-    false | [method: "test-method", url: "test-url", host: "test-host", ip: "3ffe:1900:4545:3:200:f8ff:fe21:67cf", port: 555]
+    null  | [host: "test-host", ip: null, port: 555]
+    true  | [host: "test-host", ip: "10.0.0.1", port: 555]
+    false | [host: "test-host", ip: "3ffe:1900:4545:3:200:f8ff:fe21:67cf", port: 555]
   }
 
   def "test onResponse"() {
@@ -90,7 +108,7 @@ class HttpServerDecoratorTest extends ServerDecoratorTest {
 
   @Override
   def newDecorator() {
-    return new HttpServerDecorator<Map, Map>() {
+    return new HttpServerDecorator<Map, Map, Map>() {
       @Override
       protected String[] instrumentationNames() {
         return ["test1", "test2"]
@@ -107,7 +125,7 @@ class HttpServerDecoratorTest extends ServerDecoratorTest {
       }
 
       @Override
-      protected String url(Map m) {
+      protected URI url(Map m) {
         return m.url
       }
 
